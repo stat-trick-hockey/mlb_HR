@@ -981,50 +981,49 @@ function drawField() {
   sorted.forEach((hr, i) => {
     let sx, sy;
 
-    if (hr.coordX !== null && hr.coordX !== undefined &&
-        hr.coordY !== null && hr.coordY !== undefined &&
-        !(hr.coordX === 0 && hr.coordY === 0)) {
+    // Strategy: use coordX/coordY for DIRECTION only, hr.distance for RADIUS.
+    // The API coords are not reliably calibrated to actual distance, causing
+    // color banding to break (short HRs plotting farther out than long ones).
+    // Using distance as the radius guarantees dots sort correctly by distance.
 
-      // MLB GameDay coordinate system (same as Statcast hc_x / hc_y):
-      //   - 250×250 pixel image, origin = top-left
-      //   - Home plate = (125.42, 198.27)  [calibrated by Jim Albert / baseballr]
-      //   - Scale: feet = 2.5 * (pixel offset)  [multiply, not divide]
-      //   - Y increases downward, so outfield = smaller Y values
-      //
-      // Convert pixel coords → feet centered on home plate:
-      // e.g. 400ft CF HR: coordY≈38 → ftY = 2.5*(198.27-38) = 400ft ✓
-      const ftX = 2.5 * (hr.coordX - 125.42);   // + = right field side
-      const ftY = 2.5 * (198.27 - hr.coordY);   // + = toward outfield
+    const hasCoords = hr.coordX != null && hr.coordY != null &&
+                      !(hr.coordX === 0 && hr.coordY === 0);
+    const hasDist   = hr.distance && hr.distance > 0;
 
-      // Sanity-check: a HR must land in the outfield.
-      // ftY < 250 = inside infield/warning track (bad coord).
-      // ftY < 0   = behind home plate (e.g. Will Benson case).
-      // Also reject absurd lateral values beyond the foul lines (~320ft).
-      const coordsOK = ftY >= 250 && ftY <= 600 && Math.abs(ftX) <= 400;
+    if (!hasDist) return; // nothing to plot without a distance
 
-      if (coordsOK) {
-        sx = cx + ftX * sc;
-        sy = cy - ftY * sc;
-      } else if (hr.distance) {
-        // Bad coords — fall back to distance + seeded angle estimator
-        const seed = ((hr.gamePk || 0) * 7 + (hr.batterId || 0) * 13) % 1000;
-        const angle = Math.PI * (0.5 + ((seed / 1000) - 0.5) * 0.38);
-        sx = cx + Math.cos(angle) * hr.distance * sc;
-        sy = cy - Math.sin(angle) * hr.distance * sc;
+    // Derive the lateral angle from coords if available and plausible
+    let angle;
+    if (hasCoords) {
+      const ftX = 2.5 * (hr.coordX - 125.42);
+      const ftY = 2.5 * (198.27 - hr.coordY);
+      const coordDist = Math.sqrt(ftX*ftX + ftY*ftY);
+      // Only trust the angle if coords point into fair outfield territory
+      // (ftY > 0 = toward outfield, coord dist > 50ft = not near home plate)
+      if (ftY > 50 && coordDist > 50 && Math.abs(ftX / coordDist) <= 0.98) {
+        angle = Math.atan2(ftY, -ftX) - Math.PI/2;
+        // atan2(ftY,-ftX): ftX>0=RF→ negative, so -ftX makes RF positive angle
+        // subtract π/2 so straight CF = angle 0 in our SVG convention
+        // SVG convention: angle 0 = straight up, positive = right (RF)
+        angle = Math.atan2(ftX, ftY); // ftX>0=RF, ftY>0=outfield → standard polar from y-axis
       } else {
-        return;
+        // Bad coords — use seeded angle
+        const seed = ((hr.gamePk || 0) * 7 + (hr.batterId || 0) * 13) % 1000;
+        angle = Math.PI * (((seed / 1000) - 0.5) * 0.38); // spread around CF
       }
-
-    } else if (hr.distance) {
-      // No coordinates — estimate from distance + seeded deterministic angle
-      const seed = ((hr.gamePk || 0) * 7 + (hr.batterId || 0) * 13) % 1000;
-      const angle = Math.PI * (0.5 + ((seed / 1000) - 0.5) * 0.38);
-      const d = hr.distance * sc;
-      sx = cx + Math.cos(angle) * d;
-      sy = cy - Math.sin(angle) * d;
     } else {
-      return; // skip — no position info at all
+      const seed = ((hr.gamePk || 0) * 7 + (hr.batterId || 0) * 13) % 1000;
+      angle = Math.PI * (((seed / 1000) - 0.5) * 0.38);
     }
+
+    // Clamp angle to fair territory (roughly ±50° from CF)
+    angle = Math.max(-Math.PI * 0.55, Math.min(Math.PI * 0.55, angle));
+
+    // Place dot at correct distance, correct direction
+    // SVG: cx=home plate, up = -y. angle=0 → straight to CF (up)
+    // angle positive → RF side (right), negative → LF side (left)
+    sx = cx + Math.sin(angle) * hr.distance * sc;
+    sy = cy - Math.cos(angle) * hr.distance * sc;
 
     const col = hrColor(hr.distance);
     const opa = hr.launchSpeed ? Math.min(.45 + (hr.launchSpeed-85)/40, .95) : .7;
