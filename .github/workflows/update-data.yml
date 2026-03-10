@@ -1,0 +1,92 @@
+name: Update MLB HR Data
+
+on:
+  schedule:
+    # Runs at 6:00 AM UTC daily (2 AM ET) — after west coast games finish
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      season:
+        description: 'Season to fetch (2024, 2025, 2026, or both)'
+        required: false
+        default: 'current'
+      full_rebuild:
+        description: 'Full rebuild from scratch (wipes existing data)'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  update-hr-data:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Determine season input
+        id: season
+        run: |
+          # On schedule: always update 2026 (current/upcoming season)
+          # On manual dispatch: use the input
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "season=2026" >> $GITHUB_OUTPUT
+          else
+            echo "season=${{ github.event.inputs.season || 'current' }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Fetch 2024 HR data
+        if: steps.season.outputs.season == '2024' || steps.season.outputs.season == 'both'
+        run: |
+          FULL_REBUILD=${{ github.event.inputs.full_rebuild || 'false' }}
+          if [ "$FULL_REBUILD" = "true" ]; then
+            python scripts/fetch_hrs.py --season 2024 --full-rebuild
+          else
+            python scripts/fetch_hrs.py --season 2024
+          fi
+
+      - name: Fetch 2025 HR data
+        if: steps.season.outputs.season == '2025' || steps.season.outputs.season == 'both'
+        run: |
+          FULL_REBUILD=${{ github.event.inputs.full_rebuild || 'false' }}
+          if [ "$FULL_REBUILD" = "true" ]; then
+            python scripts/fetch_hrs.py --season 2025 --full-rebuild
+          else
+            python scripts/fetch_hrs.py --season 2025
+          fi
+
+      - name: Fetch 2026 HR data
+        if: steps.season.outputs.season == '2026' || steps.season.outputs.season == 'both' || steps.season.outputs.season == 'current'
+        run: python scripts/fetch_hrs.py --season 2026
+
+      - name: Check for data changes
+        id: changes
+        run: |
+          git diff --quiet data/ && echo "changed=false" >> $GITHUB_OUTPUT || echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Commit and push updated data
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          # Get HR counts for commit message
+          HR_2024=$(python -c "import json; d=json.load(open('data/hrs_2024.json')); print(len(d['home_runs']))" 2>/dev/null || echo "?")
+          HR_2025=$(python -c "import json; d=json.load(open('data/hrs_2025.json')); print(len(d['home_runs']))" 2>/dev/null || echo "?")
+          HR_2026=$(python -c "import json; d=json.load(open('data/hrs_2026.json')); print(len(d['home_runs']))" 2>/dev/null || echo "?")
+          git commit -m "chore: update HR data [2024: ${HR_2024} | 2025: ${HR_2025} | 2026: ${HR_2026} HRs]"
+          git push
+
+      - name: No changes
+        if: steps.changes.outputs.changed == 'false'
+        run: echo "No new HR data found. Nothing to commit."
