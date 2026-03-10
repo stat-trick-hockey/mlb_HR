@@ -945,14 +945,28 @@ function drawField() {
   // Distance labels
   const ls={fill:"#2e4a36","font-family":"IBM Plex Mono, monospace","font-size":"10","text-anchor":"middle"};
   if (wallPts) {
-    // Position labels at the actual wall polygon corners
+    // Compute distances from the polygon points themselves (hc_x/hc_y → feet)
+    const hcDist = ([hx, hy]) => {
+      const dx = 2.5 * (hx - 125.42);
+      const dy = 2.5 * (198.27 - hy);
+      return Math.round(Math.sqrt(dx*dx + dy*dy));
+    };
     const [rfWx, rfWy] = hcToSvg(wallPts[0]);
     const [lfWx, lfWy] = hcToSvg(wallPts[wallPts.length-1]);
     const midIdx = Math.floor(wallPts.length/2);
     const [cfWx, cfWy] = hcToSvg(wallPts[midIdx]);
-    e("text",{...ls,x:rfWx+10,y:rfWy+18},svg).textContent=st.rf||"";
-    e("text",{...ls,x:cfWx,y:cfWy-14},svg).textContent=st.cf||"";
-    e("text",{...ls,x:lfWx-10,y:lfWy+18},svg).textContent=st.lf||"";
+    const rfDist = hcDist(wallPts[0]);
+    const lfDist = hcDist(wallPts[wallPts.length-1]);
+    // CF: find the deepest point in the polygon (max distance from home)
+    let cfMaxDist = 0, cfMaxIdx = midIdx;
+    wallPts.forEach(([hx,hy], i) => {
+      const d = hcDist([hx,hy]);
+      if (d > cfMaxDist) { cfMaxDist = d; cfMaxIdx = i; }
+    });
+    const [cfMx, cfMy] = hcToSvg(wallPts[cfMaxIdx]);
+    e("text",{...ls,x:rfWx+10,y:rfWy+18},svg).textContent=rfDist;
+    e("text",{...ls,x:cfMx,y:cfMy-14},svg).textContent=cfMaxDist;
+    e("text",{...ls,x:lfWx-10,y:lfWy+18},svg).textContent=lfDist;
   } else {
     e("text",{...ls,x:lf.x+12,y:lf.y+17},svg).textContent=st.lf;
     e("text",{...ls,x:cf.x,y:cf.y-18},svg).textContent=st.cf;
