@@ -500,8 +500,19 @@ const STADIUM_FALLBACK = {
 };
 
 function getStadium(vid) {
-  const s = DB[season]?.stadiums?.[vid] || STADIUM_FALLBACK[vid];
-  return s || {name:"Unknown Park", lf:330, cf:400, rf:330};
+  // Primary: from the JSON (real API venue names + team abbrevs)
+  const fromJSON = DB[season]?.stadiums?.[vid] || DB[season]?.stadiums?.[String(vid)];
+  // Fallback dimensions if the JSON entry is missing lf/cf/rf
+  const dims = STADIUM_FALLBACK[vid] || {};
+  if (fromJSON) {
+    return {
+      ...fromJSON,
+      lf: fromJSON.lf || dims.lf || 330,
+      cf: fromJSON.cf || dims.cf || 400,
+      rf: fromJSON.rf || dims.rf || 330,
+    };
+  }
+  return dims.name ? dims : { name: `Venue ${vid}`, lf: 330, cf: 400, rf: 330 };
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -571,7 +582,7 @@ function buildStadiumDropdown() {
   // Venues that have at least one HR in this dataset
   const venueIds = [...new Set(hrs.map(h => h.venueId).filter(Boolean))].map(Number);
   venueIds.sort((a,b) => {
-    const na = getStadium(a).name, nb = getStadium(b).name;
+    const na = getStadium(a).name || '', nb = getStadium(b).name || '';
     return na.localeCompare(nb);
   });
 
@@ -861,20 +872,35 @@ function drawField() {
 
   sorted.forEach((hr, i) => {
     let sx, sy;
+
     if (hr.coordX !== null && hr.coordX !== undefined &&
-        hr.coordY !== null && hr.coordY !== undefined) {
-      sx = cx + (hr.coordX - 125) * 1.36;
-      sy = cy - (205 - hr.coordY) * 1.36;
+        hr.coordY !== null && hr.coordY !== undefined &&
+        !(hr.coordX === 0 && hr.coordY === 0)) {
+
+      // MLB GameDay coordinate system (same as Statcast hc_x / hc_y):
+      //   - 250×250 pixel image, origin = top-left
+      //   - Home plate = (125.42, 198.27)  [calibrated by Jim Albert / baseballr]
+      //   - Scale: feet = 2.5 * (pixel offset)  [multiply, not divide]
+      //   - Y increases downward, so outfield = smaller Y values
+      //
+      // Convert pixel coords → feet centered on home plate:
+      // e.g. 400ft CF HR: coordY≈38 → ftY = 2.5*(198.27-38) = 400ft ✓
+      const ftX = 2.5 * (hr.coordX - 125.42);   // + = right field side
+      const ftY = 2.5 * (198.27 - hr.coordY);   // + = toward outfield
+
+      // Convert feet → SVG pixels (sc = our field scale, 0.87 SVG-px per foot)
+      sx = cx + ftX * sc;
+      sy = cy - ftY * sc;
+
     } else if (hr.distance) {
-      // estimate position from distance and a seeded angle (deterministic per HR)
-      const seed = (hr.gamePk || 0) * 7 + (hr.batterId || 0) * 13;
-      const spread = 0.36;
-      const angle = Math.PI * (0.5 + (((seed % 1000) / 1000) - 0.5) * spread);
-      const d = hr.distance * sc * 0.95;
+      // No coordinates — estimate from distance + seeded deterministic angle
+      const seed = ((hr.gamePk || 0) * 7 + (hr.batterId || 0) * 13) % 1000;
+      const angle = Math.PI * (0.5 + ((seed / 1000) - 0.5) * 0.38);
+      const d = hr.distance * sc;
       sx = cx + Math.cos(angle) * d;
       sy = cy - Math.sin(angle) * d;
     } else {
-      return; // skip if no position info at all
+      return; // skip — no position info at all
     }
 
     const col = hrColor(hr.distance);
