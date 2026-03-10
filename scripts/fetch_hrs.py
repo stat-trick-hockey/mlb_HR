@@ -100,7 +100,7 @@ def load_existing(season: int) -> dict:
         "generated_at": None,
         "total_home_runs": 0,
         "games_processed": [],
-        "stadiums": STADIUMS,
+        "stadiums": {},
         "home_runs": []
     }
 
@@ -155,27 +155,46 @@ def fetch_schedule(season: int) -> list[dict]:
     data = get(url)
 
     games = []
+    venues = {}   # venueId -> {name, team} collected from live API data
+
     for day in data.get("dates", []):
         for g in day.get("games", []):
             if g.get("status", {}).get("abstractGameCode") != "F":
                 continue  # skip non-final
             raw_type = g.get("gameType", "R")
+
+            # Collect venue metadata from API response
+            venue = g.get("venue", {})
+            vid = venue.get("id")
+            if vid and vid not in venues:
+                home_team = g.get("teams", {}).get("home", {}).get("team", {})
+                venues[vid] = {
+                    "name": venue.get("name", f"Venue {vid}"),
+                    "team": home_team.get("abbreviation", ""),
+                    "teamName": home_team.get("name", ""),
+                    # Dimensions not in schedule API — use fallback if available
+                    "lf":  STADIUMS.get(vid, {}).get("lf"),
+                    "cf":  STADIUMS.get(vid, {}).get("cf"),
+                    "rf":  STADIUMS.get(vid, {}).get("rf"),
+                }
+
             games.append({
-                "gamePk":     g["gamePk"],
-                "date":       day["date"],
-                "gameType":   raw_type,
+                "gamePk":        g["gamePk"],
+                "date":          day["date"],
+                "gameType":      raw_type,
                 "gameTypeLabel": GAME_TYPE_LABELS.get(raw_type, raw_type),
-                "venueId":    g.get("venue", {}).get("id"),
-                "homeTeamId": g.get("teams", {}).get("home", {}).get("team", {}).get("id"),
-                "awayTeamId": g.get("teams", {}).get("away", {}).get("team", {}).get("id"),
-                "homeName":   g.get("teams", {}).get("home", {}).get("team", {}).get("name", ""),
-                "awayName":   g.get("teams", {}).get("away", {}).get("team", {}).get("name", ""),
+                "venueId":       vid,
+                "homeTeamId":    g.get("teams", {}).get("home", {}).get("team", {}).get("id"),
+                "awayTeamId":    g.get("teams", {}).get("away", {}).get("team", {}).get("id"),
+                "homeName":      g.get("teams", {}).get("home", {}).get("team", {}).get("name", ""),
+                "awayName":      g.get("teams", {}).get("away", {}).get("team", {}).get("name", ""),
             })
 
     reg     = sum(1 for g in games if g["gameType"] == "R")
     playoff = sum(1 for g in games if g["gameType"] != "R")
     print(f"  Found {reg} regular season + {playoff} playoff games ({len(games)} total)")
-    return games
+    print(f"  Discovered {len(venues)} unique venues")
+    return games, venues
 
 
 # ─────────────────────────────────────────────
@@ -251,7 +270,10 @@ def run(season: int, full_rebuild: bool = False):
         existing["games_processed"] = []
 
     processed_set = set(existing["games_processed"])
-    games = fetch_schedule(season)
+    games, venues = fetch_schedule(season)
+
+    # Merge newly discovered venues (API names always win)
+    existing["stadiums"].update({str(k): v for k, v in venues.items()})
 
     new_games = [g for g in games if g["gamePk"] not in processed_set]
     print(f"  {len(processed_set)} games already processed, {len(new_games)} new to fetch")
