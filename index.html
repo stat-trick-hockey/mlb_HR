@@ -888,9 +888,24 @@ function drawField() {
       const ftX = 2.5 * (hr.coordX - 125.42);   // + = right field side
       const ftY = 2.5 * (198.27 - hr.coordY);   // + = toward outfield
 
-      // Convert feet → SVG pixels (sc = our field scale, 0.87 SVG-px per foot)
-      sx = cx + ftX * sc;
-      sy = cy - ftY * sc;
+      // Sanity-check: a HR must land in the outfield.
+      // ftY < 250 = inside infield/warning track (bad coord).
+      // ftY < 0   = behind home plate (e.g. Will Benson case).
+      // Also reject absurd lateral values beyond the foul lines (~320ft).
+      const coordsOK = ftY >= 250 && ftY <= 600 && Math.abs(ftX) <= 400;
+
+      if (coordsOK) {
+        sx = cx + ftX * sc;
+        sy = cy - ftY * sc;
+      } else if (hr.distance) {
+        // Bad coords — fall back to distance + seeded angle estimator
+        const seed = ((hr.gamePk || 0) * 7 + (hr.batterId || 0) * 13) % 1000;
+        const angle = Math.PI * (0.5 + ((seed / 1000) - 0.5) * 0.38);
+        sx = cx + Math.cos(angle) * hr.distance * sc;
+        sy = cy - Math.sin(angle) * hr.distance * sc;
+      } else {
+        return;
+      }
 
     } else if (hr.distance) {
       // No coordinates — estimate from distance + seeded deterministic angle
@@ -948,6 +963,7 @@ function drawField() {
           <span class="tip-lbl">Exit Velo</span><span class="tip-val" style="color:var(--blue)">${hr.launchSpeed ? hr.launchSpeed+" mph" : "—"}</span>
           <span class="tip-lbl">Angle</span><span class="tip-val">${hr.launchAngle ? hr.launchAngle+"°" : "—"}</span>
           <span class="tip-lbl">vs.</span><span class="tip-val" style="font-family:var(--sans);font-size:.7rem">${hr.pitcherName||"—"}</span>
+          <span class="tip-lbl">Stadium</span><span class="tip-val" style="font-family:var(--sans);font-size:.7rem">${hr.venueId ? getStadium(hr.venueId).name : "—"}</span>
           <span class="tip-lbl">Game</span><span class="tip-val" style="font-family:var(--sans);font-size:.7rem">${hr.gameTypeLabel||"Regular Season"}</span>
           <span class="tip-lbl">Date</span><span class="tip-val" style="font-family:var(--sans);font-size:.7rem">${hr.date||"—"}</span>
         </div>`;
