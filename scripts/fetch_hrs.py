@@ -210,23 +210,46 @@ def extract_hrs_from_game(game_meta: dict) -> list[dict]:
         return []
 
     hrs = []
+    seen = set()  # deduplicate: (batterId, inning, halfInning)
+
     for play in data.get("allPlays", []):
-        if play.get("result", {}).get("eventType") != "home_run":
+        result = play.get("result", {})
+
+        # Must be a completed home run at-bat
+        if result.get("eventType") != "home_run":
             continue
+        about = play.get("about", {})
+        if not about.get("isComplete", True):
+            continue  # skip incomplete/overturned plays
 
         batter  = play.get("matchup", {}).get("batter", {})
         pitcher = play.get("matchup", {}).get("pitcher", {})
-        about   = play.get("about", {})
 
-        # hitData lives on the last play event
+        # Deduplicate — same batter, same inning/half should only appear once
+        dedup_key = (batter.get("id"), about.get("inning"), about.get("halfInning", ""))
+        if dedup_key in seen:
+            continue
+        seen.add(dedup_key)
+
+        # hitData: prefer the event that actually has hitData (usually the last pitch)
         events   = play.get("playEvents", [])
-        hit_data = events[-1].get("hitData", {}) if events else {}
+        hit_data = {}
+        for ev in reversed(events):
+            if ev.get("hitData"):
+                hit_data = ev["hitData"]
+                break
         coords   = hit_data.get("coordinates", {})
 
         # Determine batting team
         half = about.get("halfInning", "")
         batting_team_id = game_meta["homeTeamId"] if half == "bottom" else game_meta["awayTeamId"]
         batting_team    = game_meta["homeName"]   if half == "bottom" else game_meta["awayName"]
+
+        # Sanity check distance — real MLB HRs are 300ft+
+        # Values below this are bad API data (e.g. overturned calls, scoring errors)
+        total_dist = hit_data.get("totalDistance")
+        if total_dist is not None and total_dist < 300:
+            continue
 
         hrs.append({
             "gamePk":        gk,
