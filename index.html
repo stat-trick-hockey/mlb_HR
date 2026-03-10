@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MLB HR Spray Chart</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* ─── TOKENS ─────────────────────────────────────────── */
+:root {
+  --bg:        #07090d;
+  --s1:        #0d1018;
+  --s2:        #131720;
+  --s3:        #191f2a;
+  --bd:        #1e2736;
+  --bd2:       #283346;
+  --txt:       #cdd5e0;
+  --muted:     #4e5d72;
+  --muted2:    #7a8fa8;
+  --gold:      #f2ca3a;
+  --blue:      #3b9eff;
+  --red:       #ff5040;
+  --green:     #36d68a;
+  --r:         4px;
+  --mono:      'IBM Plex Mono', monospace;
+  --sans:      'IBM Plex Sans', sans-serif;
+  --display:   'Bebas Neue', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+
+body {
+  background: var(--bg);
+  color: var(--txt);
+  font-family: var(--sans);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── HEADER ─────────────────────────────────────────── */
+header {
+  height: 52px;
+  flex-shrink: 0;
+  background: var(--s1);
+  border-bottom: 1px solid var(--bd);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 0;
+}
+
+.logo {
+  font-family: var(--display);
+  font-size: 1.7rem;
+  letter-spacing: .07em;
+  color: var(--gold);
+  line-height: 1;
+  margin-right: 16px;
+}
+
+.logo-sub {
+  font-family: var(--mono);
+  font-size: .58rem;
+  color: var(--muted);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  border-left: 1px solid var(--bd2);
+  padding-left: 16px;
+  margin-right: auto;
+}
+
+/* season tabs */
+.season-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.stab {
+  font-family: var(--mono);
+  font-size: .65rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  padding: 5px 14px;
+  border-radius: var(--r);
+  border: 1px solid var(--bd2);
+  background: transparent;
+  color: var(--muted2);
+  cursor: pointer;
+  transition: all .15s;
+}
+.stab:hover { border-color: var(--gold); color: var(--txt); }
+.stab.active { background: var(--gold); color: #07090d; border-color: var(--gold); font-weight: 500; }
+
+.updated-at {
+  font-family: var(--mono);
+  font-size: .56rem;
+  color: var(--muted);
+  letter-spacing: .08em;
+  margin-left: 20px;
+}
+
+/* ─── LAYOUT ─────────────────────────────────────────── */
+.body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 268px 1fr 220px;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ─── SIDEBAR LEFT ────────────────────────────────────── */
+.left {
+  background: var(--s1);
+  border-right: 1px solid var(--bd);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.panel {
+  padding: 14px 14px 12px;
+  border-bottom: 1px solid var(--bd);
+}
+
+.flabel {
+  font-family: var(--mono);
+  font-size: .56rem;
+  letter-spacing: .14em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+select {
+  width: 100%;
+  background: var(--s2);
+  border: 1px solid var(--bd2);
+  color: var(--txt);
+  font-family: var(--sans);
+  font-size: .82rem;
+  padding: 7px 28px 7px 10px;
+  border-radius: var(--r);
+  appearance: none;
+  cursor: pointer;
+  outline: none;
+  transition: border-color .2s;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234e5d72'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+select:hover, select:focus { border-color: var(--gold); }
+select option { background: #131720; }
+
+.search-input {
+  width: 100%;
+  background: var(--s2);
+  border: 1px solid var(--bd2);
+  color: var(--txt);
+  font-family: var(--sans);
+  font-size: .82rem;
+  padding: 7px 10px;
+  border-radius: var(--r);
+  outline: none;
+  transition: border-color .2s;
+}
+.search-input:hover, .search-input:focus { border-color: var(--gold); }
+.search-input::placeholder { color: var(--muted); }
+
+.hr-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 14px;
+}
+
+.hr-scroll-hdr {
+  font-family: var(--mono);
+  font-size: .56rem;
+  letter-spacing: .14em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.hr-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--r);
+  cursor: pointer;
+  margin: 0 -8px;
+  transition: background .12s;
+}
+.hr-row:hover { background: var(--s2); }
+.hr-row.active { background: rgba(242,202,58,.07); }
+
+.pip { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+.hr-info { flex: 1; min-width: 0; }
+.hr-name { font-size: .78rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hr-meta-txt { font-size: .62rem; color: var(--muted2); font-family: var(--mono); }
+
+.hr-dist-val { font-family: var(--display); font-size: 1.05rem; color: var(--gold); flex-shrink: 0; }
+
+.empty { color: var(--muted); font-family: var(--mono); font-size: .68rem; text-align: center; padding: 32px 10px; line-height: 1.9; }
+
+/* ─── FIELD CENTER ───────────────────────────────────── */
+.center {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.field-header {
+  height: 48px;
+  flex-shrink: 0;
+  background: var(--s1);
+  border-bottom: 1px solid var(--bd);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px;
+}
+
+.park-name { font-family: var(--display); font-size: 1.3rem; letter-spacing: .05em; }
+.park-dims { font-family: var(--mono); font-size: .56rem; color: var(--muted); letter-spacing: .08em; margin-top: 1px; }
+
+.legend {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+.leg-item {
+  display: flex; align-items: center; gap: 5px;
+  font-size: .65rem; color: var(--muted2); font-family: var(--mono);
+}
+.leg-pip { width: 8px; height: 8px; border-radius: 50%; }
+
+.svg-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  overflow: hidden;
+  position: relative;
+}
+
+#fieldSvg { max-width: 100%; max-height: 100%; }
+
+/* tooltip */
+.tip {
+  position: absolute;
+  background: var(--s1);
+  border: 1px solid var(--bd2);
+  border-radius: 6px;
+  padding: 10px 14px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .12s;
+  z-index: 10;
+  min-width: 175px;
+  box-shadow: 0 10px 40px rgba(0,0,0,.7);
+}
+.tip.show { opacity: 1; }
+.tip-player { font-weight: 600; font-size: .88rem; margin-bottom: 6px; }
+.tip-grid { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; }
+.tip-lbl { font-family: var(--mono); font-size: .58rem; color: var(--muted2); align-self: center; }
+.tip-val { font-family: var(--display); font-size: 1rem; text-align: right; }
+
+/* ─── SIDEBAR RIGHT ──────────────────────────────────── */
+.right {
+  background: var(--s1);
+  border-left: 1px solid var(--bd);
+  display: flex;
+  flex-direction: column;
+  padding: 14px;
+  gap: 12px;
+  overflow-y: auto;
+}
+
+.stat-box {
+  background: var(--s2);
+  border: 1px solid var(--bd);
+  border-radius: var(--r);
+  padding: 11px 13px;
+}
+.stat-box-lbl { font-family: var(--mono); font-size: .54rem; letter-spacing: .14em; color: var(--muted); text-transform: uppercase; margin-bottom: 3px; }
+.stat-box-val { font-family: var(--display); font-size: 1.9rem; color: var(--gold); letter-spacing: .04em; line-height: 1; }
+.stat-box-sub { font-size: .65rem; color: var(--muted2); margin-top: 2px; }
+
+.mini-chart-box {
+  background: var(--s2);
+  border: 1px solid var(--bd);
+  border-radius: var(--r);
+  padding: 11px 13px;
+}
+.mini-chart-box .flabel { margin-bottom: 9px; }
+
+.bar-row {
+  display: flex; align-items: center; gap: 6px; margin-bottom: 5px;
+  font-size: .62rem;
+}
+.bar-lbl { width: 50px; color: var(--muted2); font-family: var(--mono); font-size: .6rem; flex-shrink: 0; }
+.bar-track { flex: 1; height: 5px; background: var(--bd); border-radius: 3px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 3px; transition: width .5s; }
+.bar-n { width: 22px; text-align: right; color: var(--muted2); font-family: var(--mono); font-size: .6rem; flex-shrink: 0; }
+
+.hitter-row {
+  display: flex; align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--bd);
+  font-size: .75rem;
+}
+.hitter-row:last-child { border: none; }
+.hitter-rank { font-family: var(--mono); color: var(--muted); width: 18px; font-size: .62rem; }
+.hitter-name { flex: 1; padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hitter-n { font-family: var(--display); font-size: 1.05rem; color: var(--gold); }
+
+/* loading overlay */
+.loading-overlay {
+  position: fixed; inset: 0; background: rgba(7,9,13,.92);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  z-index: 100; gap: 18px;
+  transition: opacity .3s;
+}
+.loading-overlay.hide { opacity: 0; pointer-events: none; }
+
+.loader-text { font-family: var(--mono); font-size: .75rem; color: var(--muted2); letter-spacing: .12em; text-transform: uppercase; }
+
+.loader-bar { width: 200px; height: 2px; background: var(--bd2); border-radius: 1px; overflow: hidden; }
+.loader-bar-fill { height: 100%; background: var(--gold); width: 0; transition: width .4s; }
+
+.loader-logo { font-family: var(--display); font-size: 3rem; color: var(--gold); letter-spacing: .1em; }
+
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bd2); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div class="loading-overlay" id="overlay">
+  <div class="loader-logo">Exit Velocity</div>
+  <div class="loader-text" id="loadText">Loading data…</div>
+  <div class="loader-bar"><div class="loader-bar-fill" id="loadBar"></div></div>
+</div>
+
+<!-- Header -->
+<header>
+  <div class="logo">Exit Velocity</div>
+  <div class="logo-sub">MLB Home Run Spray Chart</div>
+  <div class="season-tabs">
+    <button class="stab active" data-season="2026" onclick="setSeason(2026)">2026</button>
+    <button class="stab" data-season="2025" onclick="setSeason(2025)">2025</button>
+    <button class="stab" data-season="2024" onclick="setSeason(2024)">2024</button>
+  </div>
+  <div class="updated-at" id="updatedAt"></div>
+</header>
+
+<div class="body">
+
+  <!-- LEFT -->
+  <div class="left">
+    <div class="panel">
+      <div class="flabel">Game Type</div>
+      <select id="gameTypeSel" onchange="applyFilters()">
+        <option value="all">All Games</option>
+        <option value="R">Regular Season</option>
+        <option value="playoffs">Playoffs</option>
+        <option value="F">Wild Card</option>
+        <option value="D">Division Series</option>
+        <option value="L">League Championship</option>
+        <option value="W">World Series</option>
+      </select>
+    </div>
+    <div class="panel">
+      <div class="flabel">Stadium</div>
+      <select id="stadiumSel" onchange="onStadiumChange()"></select>
+    </div>
+    <div class="panel">
+      <div class="flabel">Player</div>
+      <select id="playerSel" onchange="applyFilters()">
+        <option value="all">All Players</option>
+      </select>
+    </div>
+    <div class="panel">
+      <div class="flabel">Search Player</div>
+      <input class="search-input" type="text" id="searchInput" placeholder="e.g. Judge, Ohtani…" oninput="onSearch()">
+    </div>
+    <div class="hr-scroll" id="hrList">
+      <div class="empty">Loading…</div>
+    </div>
+  </div>
+
+  <!-- CENTER -->
+  <div class="center">
+    <div class="field-header">
+      <div>
+        <div class="park-name" id="parkName">—</div>
+        <div class="park-dims" id="parkDims"></div>
+      </div>
+      <div class="legend">
+        <div class="leg-item"><div class="leg-pip" style="background:var(--blue)"></div>&lt;380 ft</div>
+        <div class="leg-item"><div class="leg-pip" style="background:var(--gold)"></div>380–420</div>
+        <div class="leg-item"><div class="leg-pip" style="background:var(--red)"></div>420+ ft</div>
+        <div class="leg-item"><div class="leg-pip" style="background:transparent;border:1.5px solid rgba(255,255,255,0.6);width:9px;height:9px"></div>Playoffs</div>
+      </div>
+    </div>
+    <div class="svg-wrap" id="svgWrap">
+      <svg id="fieldSvg" viewBox="0 0 500 480"></svg>
+      <div class="tip" id="tip"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="right">
+    <div class="stat-box">
+      <div class="stat-box-lbl">Home Runs</div>
+      <div class="stat-box-val" id="sHR">—</div>
+      <div class="stat-box-sub" id="sGames">— games</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-box-lbl">Avg Distance</div>
+      <div class="stat-box-val" id="sDist">—</div>
+      <div class="stat-box-sub">feet</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-box-lbl">Avg Exit Velo</div>
+      <div class="stat-box-val" id="sEV">—</div>
+      <div class="stat-box-sub">mph</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-box-lbl">Longest HR</div>
+      <div class="stat-box-val" id="sMax">—</div>
+      <div class="stat-box-sub" id="sMaxWho">—</div>
+    </div>
+    <div class="mini-chart-box">
+      <div class="flabel">Distance Buckets</div>
+      <div id="distBuckets"></div>
+    </div>
+    <div class="mini-chart-box">
+      <div class="flabel">Top Hitters</div>
+      <div id="topHitters"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// DATA + STATE
+// ═══════════════════════════════════════════════════════════
+let DB = {};          // { 2024: {home_runs, stadiums, ...}, 2025: {...} }
+let season = 2025;
+let venueId = null;
+let filtered = [];
+let activeHRIdx = -1;
+
+// Fallback stadium definitions (used if not in JSON)
+const STADIUM_FALLBACK = {
+  1:    {name:"Camden Yards",            lf:333,cf:410,rf:318},
+  2:    {name:"Fenway Park",             lf:310,cf:420,rf:302},
+  3:    {name:"Guaranteed Rate Field",   lf:330,cf:400,rf:335},
+  4:    {name:"Progressive Field",       lf:325,cf:405,rf:325},
+  5:    {name:"Comerica Park",           lf:345,cf:420,rf:330},
+  7:    {name:"Kauffman Stadium",        lf:330,cf:410,rf:330},
+  10:   {name:"Target Field",            lf:339,cf:404,rf:328},
+  11:   {name:"Yankee Stadium",          lf:318,cf:408,rf:314},
+  12:   {name:"Oakland Coliseum",        lf:330,cf:400,rf:330},
+  13:   {name:"T-Mobile Park",           lf:331,cf:401,rf:326},
+  14:   {name:"Globe Life Field",        lf:329,cf:407,rf:326},
+  15:   {name:"Rogers Centre",           lf:328,cf:400,rf:328},
+  16:   {name:"Wrigley Field",           lf:355,cf:400,rf:353},
+  17:   {name:"Great American Ball Park",lf:328,cf:404,rf:325},
+  19:   {name:"Coors Field",             lf:347,cf:415,rf:350},
+  22:   {name:"Dodger Stadium",          lf:330,cf:395,rf:330},
+  26:   {name:"American Family Field",   lf:344,cf:400,rf:345},
+  27:   {name:"Citi Field",              lf:335,cf:408,rf:330},
+  29:   {name:"Citizens Bank Park",      lf:329,cf:401,rf:330},
+  31:   {name:"PNC Park",                lf:325,cf:399,rf:320},
+  32:   {name:"Busch Stadium",           lf:336,cf:400,rf:335},
+  33:   {name:"Petco Park",              lf:336,cf:396,rf:322},
+  35:   {name:"Oracle Park",             lf:339,cf:399,rf:309},
+  36:   {name:"Nationals Park",          lf:336,cf:402,rf:335},
+  2392: {name:"loanDepot Park",          lf:344,cf:416,rf:335},
+  2395: {name:"Minute Maid Park",        lf:315,cf:435,rf:326},
+  2602: {name:"Chase Field",             lf:330,cf:407,rf:334},
+  2680: {name:"Tropicana Field",         lf:315,cf:404,rf:322},
+  2681: {name:"Angel Stadium",           lf:330,cf:396,rf:330},
+  2889: {name:"Truist Park",             lf:335,cf:400,rf:325},
+  4169: {name:"Sutter Health Park",      lf:330,cf:400,rf:330},
+};
+
+function getStadium(vid) {
+  const s = DB[season]?.stadiums?.[vid] || STADIUM_FALLBACK[vid];
+  return s || {name:"Unknown Park", lf:330, cf:400, rf:330};
+}
+
+// ═══════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════
+async function init() {
+  setLoad(5, "Loading data…");
+  try {
+    const [d26, d25, d24] = await Promise.all([
+      fetchJSON("data/hrs_2026.json"),
+      fetchJSON("data/hrs_2025.json"),
+      fetchJSON("data/hrs_2024.json"),
+    ]);
+    setLoad(80, "Building index…");
+    DB[2026] = d26;
+    DB[2025] = d25;
+    DB[2024] = d24;
+    setLoad(95, "Rendering…");
+    await new Promise(r => setTimeout(r, 80));
+    buildStadiumDropdown();
+    setSeason(2026, true);
+    hideOverlay();
+  } catch(e) {
+    document.getElementById("loadText").textContent = "Error loading data. See console.";
+    console.error(e);
+  }
+}
+
+async function fetchJSON(path) {
+  const r = await fetch(path + "?v=" + Date.now());
+  if (!r.ok) throw new Error(`HTTP ${r.status} for ${path}`);
+  return r.json();
+}
+
+function setLoad(pct, text) {
+  document.getElementById("loadBar").style.width = pct + "%";
+  document.getElementById("loadText").textContent = text;
+}
+
+function hideOverlay() {
+  document.getElementById("overlay").classList.add("hide");
+  setTimeout(() => document.getElementById("overlay").style.display = "none", 400);
+}
+
+// ═══════════════════════════════════════════════════════════
+// SEASON SWITCH
+// ═══════════════════════════════════════════════════════════
+function setSeason(s, skipRender) {
+  season = s;
+  document.querySelectorAll(".stab").forEach(b => b.classList.toggle("active", +b.dataset.season === s));
+  const d = DB[s];
+  if (d?.generated_at) {
+    const dt = new Date(d.generated_at);
+    document.getElementById("updatedAt").textContent =
+      "Updated " + dt.toLocaleDateString("en-US", {month:"short",day:"numeric",year:"numeric"});
+  }
+  buildStadiumDropdown();
+  if (!skipRender) applyFilters();
+}
+
+// ═══════════════════════════════════════════════════════════
+// STADIUM DROPDOWN
+// ═══════════════════════════════════════════════════════════
+function buildStadiumDropdown() {
+  const hrs = DB[season]?.home_runs || [];
+
+  // Venues that have at least one HR in this dataset
+  const venueIds = [...new Set(hrs.map(h => h.venueId).filter(Boolean))].map(Number);
+  venueIds.sort((a,b) => {
+    const na = getStadium(a).name, nb = getStadium(b).name;
+    return na.localeCompare(nb);
+  });
+
+  const sel = document.getElementById("stadiumSel");
+  sel.innerHTML = '<option value="all">All Stadiums</option>';
+  venueIds.forEach(id => {
+    const st = getStadium(id);
+    const opt = document.createElement("option");
+    opt.value = id;
+    opt.textContent = st.name + (st.team ? ` (${st.team})` : "");
+    sel.appendChild(opt);
+  });
+
+  // Keep selection if possible
+  if (venueId && [...sel.options].some(o => +o.value === venueId)) {
+    sel.value = venueId;
+  } else {
+    venueId = null;
+    sel.value = "all";
+  }
+
+  onStadiumChange(true);
+}
+
+function onStadiumChange(skipFilter) {
+  const raw = document.getElementById("stadiumSel").value;
+  venueId = raw === "all" ? null : parseInt(raw);
+  const st = venueId ? getStadium(venueId) : null;
+
+  document.getElementById("parkName").textContent = st ? st.name : "All Stadiums";
+  document.getElementById("parkDims").textContent = st
+    ? `${st.team ? st.team + " · " : ""}LF ${st.lf}ft · CF ${st.cf}ft · RF ${st.rf}ft`
+    : "Select a stadium to see field dimensions";
+
+  if (!skipFilter) applyFilters();
+}
+
+// ═══════════════════════════════════════════════════════════
+// FILTERS
+// ═══════════════════════════════════════════════════════════
+function onSearch() {
+  const q = document.getElementById("searchInput").value.trim().toLowerCase();
+  const sel = document.getElementById("playerSel");
+  if (!q) { sel.value = "all"; applyFilters(); return; }
+  const match = [...sel.options].find(o => o.value !== "all" && o.value.toLowerCase().includes(q));
+  if (match) { sel.value = match.value; applyFilters(); }
+}
+
+function applyFilters() {
+  const hrs = DB[season]?.home_runs || [];
+  const player   = document.getElementById("playerSel").value;
+  const gameType = document.getElementById("gameTypeSel").value;
+
+  filtered = hrs.filter(h => {
+    if (venueId && h.venueId !== venueId) return false;
+    if (player !== "all" && h.batterName !== player) return false;
+    if (gameType === "playoffs") {
+      if (!["F","D","L","W"].includes(h.gameType)) return false;
+    } else if (gameType !== "all") {
+      if (h.gameType !== gameType) return false;
+    }
+    return true;
+  });
+
+  // Rebuild player dropdown based on current stadium + gameType filter
+  rebuildPlayerDropdown(hrs);
+  renderStats();
+  renderHRList();
+  drawField();
+}
+
+function rebuildPlayerDropdown(hrs) {
+  const player   = document.getElementById("playerSel").value;
+  const gameType = document.getElementById("gameTypeSel").value;
+
+  let pool = venueId ? hrs.filter(h => h.venueId === venueId) : hrs;
+  if (gameType === "playoffs") {
+    pool = pool.filter(h => ["F","D","L","W"].includes(h.gameType));
+  } else if (gameType !== "all") {
+    pool = pool.filter(h => h.gameType === gameType);
+  }
+
+  const players = [...new Set(pool.map(h => h.batterName))].sort();
+  const sel = document.getElementById("playerSel");
+  sel.innerHTML = '<option value="all">All Players</option>';
+  players.forEach(p => {
+    const o = document.createElement("option");
+    o.value = p; o.textContent = p;
+    if (p === player) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// STATS
+// ═══════════════════════════════════════════════════════════
+function renderStats() {
+  const n = filtered.length;
+  document.getElementById("sHR").textContent = n || "—";
+  const games = new Set(filtered.map(h => h.gamePk));
+  document.getElementById("sGames").textContent = n ? `${games.size} games` : "—";
+
+  if (!n) {
+    ["sDist","sEV","sMax"].forEach(id => document.getElementById(id).textContent = "—");
+    document.getElementById("sMaxWho").textContent = "—";
+    renderDistBuckets([]);
+    renderTopHitters([]);
+    return;
+  }
+
+  const withD = filtered.filter(h => h.distance);
+  const withEV = filtered.filter(h => h.launchSpeed);
+
+  if (withD.length) {
+    document.getElementById("sDist").textContent =
+      Math.round(withD.reduce((s,h) => s+h.distance,0)/withD.length) + " ft";
+    const mx = withD.reduce((a,b) => a.distance > b.distance ? a : b);
+    document.getElementById("sMax").textContent = mx.distance + " ft";
+    document.getElementById("sMaxWho").textContent = mx.batterName;
+  }
+  if (withEV.length) {
+    document.getElementById("sEV").textContent =
+      (withEV.reduce((s,h) => s+h.launchSpeed,0)/withEV.length).toFixed(1) + " mph";
+  }
+
+  renderDistBuckets(withD);
+  renderTopHitters();
+}
+
+function renderDistBuckets(hrs) {
+  const buckets = [
+    {l:"<350",   min:0,   max:350, c:"var(--blue)"},
+    {l:"350–380",min:350, max:380, c:"var(--blue)"},
+    {l:"380–400",min:380, max:400, c:"var(--gold)"},
+    {l:"400–420",min:400, max:420, c:"var(--gold)"},
+    {l:"420–450",min:420, max:450, c:"var(--red)"},
+    {l:"450+",   min:450, max:9999,c:"var(--red)"},
+  ];
+  const counts = buckets.map(b => hrs.filter(h => h.distance >= b.min && h.distance < b.max).length);
+  const mx = Math.max(...counts, 1);
+  document.getElementById("distBuckets").innerHTML = buckets.map((b,i) => `
+    <div class="bar-row">
+      <span class="bar-lbl">${b.l}</span>
+      <div class="bar-track"><div class="bar-fill" style="background:${b.c};width:${Math.round(counts[i]/mx*100)}%"></div></div>
+      <span class="bar-n">${counts[i]}</span>
+    </div>`).join("");
+}
+
+function renderTopHitters() {
+  const counts = {};
+  filtered.forEach(h => counts[h.batterName] = (counts[h.batterName]||0)+1);
+  const top = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0,8);
+  document.getElementById("topHitters").innerHTML = top.length
+    ? top.map(([name,n],i) => `
+      <div class="hitter-row">
+        <span class="hitter-rank">${i+1}</span>
+        <span class="hitter-name">${name}</span>
+        <span class="hitter-n">${n}</span>
+      </div>`).join("")
+    : "<div class='empty' style='padding:10px 0'>No data</div>";
+}
+
+// ═══════════════════════════════════════════════════════════
+// HR LIST
+// ═══════════════════════════════════════════════════════════
+function renderHRList() {
+  const el = document.getElementById("hrList");
+  if (!filtered.length) {
+    el.innerHTML = "<div class='empty'>No home runs match<br>the current filters.</div>";
+    return;
+  }
+  const sorted = [...filtered].sort((a,b) => (b.distance||0)-(a.distance||0));
+  el.innerHTML = `<div class="hr-scroll-hdr"><span>Hit · Sorted by distance</span><span>${sorted.length}</span></div>`;
+  sorted.forEach((hr, i) => {
+    const col = hrColor(hr.distance);
+    const div = document.createElement("div");
+    div.className = "hr-row";
+    div.dataset.i = i;
+    div.innerHTML = `
+      <div class="pip" style="background:${col}"></div>
+      <div class="hr-info">
+        <div class="hr-name">${hr.batterName}</div>
+        <div class="hr-meta-txt">${hr.date}${hr.launchSpeed ? " · "+hr.launchSpeed+" mph" : ""}</div>
+      </div>
+      <div class="hr-dist-val">${hr.distance ? hr.distance+'<span style="font-size:.52rem;color:var(--muted)">ft</span>' : "—"}</div>
+    `;
+    div.addEventListener("click", () => highlightHR(i, div));
+    el.appendChild(div);
+  });
+}
+
+function highlightHR(i, rowEl) {
+  document.querySelectorAll(".hr-row").forEach(r => r.classList.remove("active"));
+  rowEl.classList.add("active");
+  activeHRIdx = i;
+  drawField(); // re-render with highlight
+}
+
+// ═══════════════════════════════════════════════════════════
+// FIELD DRAWING
+// ═══════════════════════════════════════════════════════════
+function hrColor(dist) {
+  if (!dist) return "var(--muted)";
+  if (dist >= 420) return "var(--red)";
+  if (dist >= 380) return "var(--gold)";
+  return "var(--blue)";
+}
+
+function drawField() {
+  const st = venueId ? getStadium(venueId) : {lf:330, cf:400, rf:330, name:"All Stadiums"};
+  const svg = document.getElementById("fieldSvg");
+  svg.innerHTML = "";
+
+  const W=500, H=480, cx=250, cy=H-58, sc=0.87;
+  const lfPx=st.lf*sc, cfPx=st.cf*sc, rfPx=st.rf*sc;
+  const lfA=Math.PI*.77, cfA=Math.PI*.5, rfA=Math.PI*.23;
+
+  const pt = (a,d) => ({x: cx+Math.cos(a)*d, y: cy-Math.sin(a)*d});
+  const lf=pt(lfA,lfPx), cf=pt(cfA,cfPx), rf=pt(rfA,rfPx);
+  const lfx=pt(lfA,lfPx+30), rfx=pt(rfA,rfPx+30);
+
+  function e(tag, attrs, parent) {
+    const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+    Object.entries(attrs).forEach(([k,v]) => el.setAttribute(k,v));
+    (parent||svg).appendChild(el); return el;
+  }
+
+  // BG
+  e("rect",{x:0,y:0,width:W,height:H,fill:"#07090d"});
+
+  // Fair territory base
+  e("path",{d:`M${cx} ${cy} L${lfx.x} ${lfx.y} Q${cf.x} ${cf.y-14} ${rfx.x} ${rfx.y} Z`, fill:"#111a14"});
+
+  // Mow stripes (8 bands)
+  for(let i=0;i<8;i++){
+    const t0=i/8, t1=(i+1)/8;
+    const r0=lfPx*.5+t0*lfPx*.46, r1=lfPx*.5+t1*lfPx*.46;
+    const fill=i%2===0?"#131e16":"#111a14";
+    e("path",{
+      d:`M${cx+Math.cos(lfA)*r0} ${cy-Math.sin(lfA)*r0}
+         Q${cx} ${cy-r0*.9} ${cx+Math.cos(rfA)*r0} ${cy-Math.sin(rfA)*r0}
+         L${cx+Math.cos(rfA)*r1} ${cy-Math.sin(rfA)*r1}
+         Q${cx} ${cy-r1*.9} ${cx+Math.cos(lfA)*r1} ${cy-Math.sin(lfA)*r1}Z`,
+      fill
+    });
+  }
+
+  // Warning track
+  const wt=.935;
+  const wlf=pt(lfA,lfPx*wt), wcf=pt(cfA,cfPx*wt), wrf=pt(rfA,rfPx*wt);
+  e("path",{d:`M${wlf.x} ${wlf.y} Q${wcf.x} ${wcf.y-8} ${wrf.x} ${wrf.y}`,fill:"none",stroke:"#4a2e14","stroke-width":14,"stroke-linecap":"round",opacity:.55});
+
+  // Wall
+  e("path",{d:`M${lf.x} ${lf.y} Q${cf.x} ${cf.y-10} ${rf.x} ${rf.y}`,fill:"none",stroke:"#1e3e28","stroke-width":5,"stroke-linecap":"round"});
+
+  // Infield dirt
+  e("circle",{cx,cy,r:87*sc*.58,fill:"#3e2510",opacity:.7});
+
+  // Inner grass
+  e("circle",{cx,cy,r:87*sc*.46,fill:"#131e16"});
+
+  // Pitcher's mound
+  e("circle",{cx,cy:cy-38*sc,r:8*sc,fill:"#5c3214",opacity:.85});
+  e("rect",{x:cx-3,y:cy-42*sc,width:6,height:2.5,fill:"#dce2ec",opacity:.6,rx:1});
+
+  // Bases
+  const bd=62*sc*.66;
+  [[cx+bd,cy-bd],[cx,cy-bd*2],[cx-bd,cy-bd],[cx,cy]].forEach(([bx,by]) => {
+    e("rect",{x:bx-4,y:by-4,width:8,height:8,fill:"#cdd5e0",opacity:.8,
+      transform:`rotate(45 ${bx} ${by})`});
+  });
+
+  // Foul lines
+  e("line",{x1:cx,y1:cy,x2:lfx.x,y2:lfx.y,stroke:"#fff","stroke-width":1.5,opacity:.18});
+  e("line",{x1:cx,y1:cy,x2:rfx.x,y2:rfx.y,stroke:"#fff","stroke-width":1.5,opacity:.18});
+
+  // Distance labels
+  const ls={fill:"#2e4a36","font-family":"IBM Plex Mono, monospace","font-size":"10","text-anchor":"middle"};
+  e("text",{...ls,x:lf.x+12,y:lf.y+17},svg).textContent=st.lf;
+  e("text",{...ls,x:cf.x,y:cf.y-18},svg).textContent=st.cf;
+  e("text",{...ls,x:rf.x-12,y:rf.y+17},svg).textContent=st.rf;
+
+  // ── HR DOTS ──
+  const sorted = [...filtered].sort((a,b) => (b.distance||0)-(a.distance||0));
+  const tip = document.getElementById("tip");
+  const wrap = document.getElementById("svgWrap");
+
+  sorted.forEach((hr, i) => {
+    let sx, sy;
+    if (hr.coordX !== null && hr.coordX !== undefined &&
+        hr.coordY !== null && hr.coordY !== undefined) {
+      sx = cx + (hr.coordX - 125) * 1.36;
+      sy = cy - (205 - hr.coordY) * 1.36;
+    } else if (hr.distance) {
+      // estimate position from distance and a seeded angle (deterministic per HR)
+      const seed = (hr.gamePk || 0) * 7 + (hr.batterId || 0) * 13;
+      const spread = 0.36;
+      const angle = Math.PI * (0.5 + (((seed % 1000) / 1000) - 0.5) * spread);
+      const d = hr.distance * sc * 0.95;
+      sx = cx + Math.cos(angle) * d;
+      sy = cy - Math.sin(angle) * d;
+    } else {
+      return; // skip if no position info at all
+    }
+
+    const col = hrColor(hr.distance);
+    const opa = hr.launchSpeed ? Math.min(.45 + (hr.launchSpeed-85)/40, .95) : .7;
+    const isActive = i === activeHRIdx;
+    const r = isActive ? 7 : 4.5;
+
+    const g = document.createElementNS("http://www.w3.org/2000/svg","g");
+    g.style.cursor = "pointer";
+
+    // Glow
+    const glow = document.createElementNS("http://www.w3.org/2000/svg","circle");
+    glow.setAttribute("cx",sx); glow.setAttribute("cy",sy);
+    glow.setAttribute("r",isActive?11:7); glow.setAttribute("fill",col);
+    glow.setAttribute("opacity",isActive?.25:.1);
+    g.appendChild(glow);
+
+    // Dot
+    const dot = document.createElementNS("http://www.w3.org/2000/svg","circle");
+    dot.setAttribute("cx",sx); dot.setAttribute("cy",sy);
+    dot.setAttribute("r",r); dot.setAttribute("fill",col);
+    dot.setAttribute("opacity",isActive?1:opa);
+    dot.setAttribute("stroke","#07090d"); dot.setAttribute("stroke-width","0.8");
+    g.appendChild(dot);
+
+    // Playoff ring — white outline for postseason HRs
+    if (hr.gameType && hr.gameType !== "R") {
+      const ring = document.createElementNS("http://www.w3.org/2000/svg","circle");
+      ring.setAttribute("cx",sx); ring.setAttribute("cy",sy);
+      ring.setAttribute("r", isActive ? 9.5 : 6.5);
+      ring.setAttribute("fill","none");
+      ring.setAttribute("stroke","#ffffff");
+      ring.setAttribute("stroke-width","1.2");
+      ring.setAttribute("opacity","0.55");
+      g.appendChild(ring);
+    }
+
+    // Interactions
+    g.addEventListener("mouseenter", ev => {
+      dot.setAttribute("r","7"); dot.setAttribute("opacity","1");
+      tip.innerHTML = `
+        <div class="tip-player">${hr.batterName}</div>
+        <div class="tip-grid">
+          <span class="tip-lbl">Distance</span><span class="tip-val" style="color:${col}">${hr.distance ? hr.distance+" ft" : "—"}</span>
+          <span class="tip-lbl">Exit Velo</span><span class="tip-val" style="color:var(--blue)">${hr.launchSpeed ? hr.launchSpeed+" mph" : "—"}</span>
+          <span class="tip-lbl">Angle</span><span class="tip-val">${hr.launchAngle ? hr.launchAngle+"°" : "—"}</span>
+          <span class="tip-lbl">vs.</span><span class="tip-val" style="font-family:var(--sans);font-size:.7rem">${hr.pitcherName||"—"}</span>
+          <span class="tip-lbl">Game</span><span class="tip-val" style="font-family:var(--sans);font-size:.7rem">${hr.gameTypeLabel||"Regular Season"}</span>
+          <span class="tip-lbl">Date</span><span class="tip-val" style="font-family:var(--sans);font-size:.7rem">${hr.date||"—"}</span>
+        </div>`;
+      posTip(ev, wrap, tip); tip.classList.add("show");
+    });
+    g.addEventListener("mousemove", ev => posTip(ev, wrap, tip));
+    g.addEventListener("mouseleave", () => {
+      dot.setAttribute("r", isActive?"7":"4.5");
+      dot.setAttribute("opacity", isActive?"1":opa);
+      tip.classList.remove("show");
+    });
+    g.addEventListener("click", () => {
+      activeHRIdx = i;
+      // Highlight list item
+      document.querySelectorAll(".hr-row").forEach((r,ri) => r.classList.toggle("active", ri===i));
+      drawField();
+    });
+
+    svg.appendChild(g);
+  });
+}
+
+function posTip(e, wrap, tip) {
+  const r = wrap.getBoundingClientRect();
+  let x = e.clientX - r.left + 16, y = e.clientY - r.top - 24;
+  if (x + 190 > r.width) x -= 210;
+  if (y + 150 > r.height) y -= 130;
+  tip.style.left = x+"px"; tip.style.top = y+"px";
+}
+
+// ── Boot ──
+init();
+</script>
+</body>
+</html>
