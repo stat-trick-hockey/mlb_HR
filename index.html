@@ -342,6 +342,165 @@ select option { background: #131720; }
 ::-webkit-scrollbar { width: 3px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--bd2); border-radius: 2px; }
+
+/* ─── MOBILE ─────────────────────────────────────────── */
+@media (max-width: 768px) {
+  html, body { overflow: auto; }
+
+  header {
+    height: 48px;
+    padding: 0 12px;
+    gap: 0;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  .logo { font-size: 1.3rem; margin-right: 10px; }
+  .logo-sub { display: none; }
+  .updated-at { display: none; }
+  .season-tabs { gap: 3px; margin-left: auto; }
+  .stab { padding: 4px 9px; font-size: .6rem; }
+
+  .body {
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+    min-height: 0;
+  }
+
+  /* Left sidebar → hidden drawer */
+  .left {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: 280px;
+    z-index: 200;
+    transform: translateX(-100%);
+    transition: transform .25s cubic-bezier(.4,0,.2,1);
+    border-right: 1px solid var(--bd2);
+    box-shadow: 4px 0 32px rgba(0,0,0,.6);
+  }
+  .left.open { transform: translateX(0); }
+
+  /* Drawer overlay */
+  .drawer-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.55);
+    z-index: 199;
+  }
+  .drawer-overlay.show { display: block; }
+
+  /* Filter toggle button */
+  .mob-filter-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--s2);
+    border: 1px solid var(--bd2);
+    color: var(--txt);
+    font-family: var(--mono);
+    font-size: .62rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: 5px 10px;
+    border-radius: var(--r);
+    cursor: pointer;
+    margin-right: 8px;
+    flex-shrink: 0;
+  }
+  .mob-filter-btn svg { width: 13px; height: 13px; fill: var(--muted2); }
+  .mob-filter-btn.active { border-color: var(--gold); color: var(--gold); }
+  .mob-filter-btn.active svg { fill: var(--gold); }
+
+  /* Drawer close button */
+  .drawer-close {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px 10px;
+    border-bottom: 1px solid var(--bd);
+    flex-shrink: 0;
+  }
+  .drawer-close-lbl { font-family: var(--mono); font-size: .65rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted2); }
+  .drawer-close-btn {
+    background: none; border: none; color: var(--muted2);
+    font-size: 1.1rem; cursor: pointer; padding: 2px 6px;
+    border-radius: var(--r);
+    line-height: 1;
+  }
+  .drawer-close-btn:hover { color: var(--txt); background: var(--s2); }
+
+  /* Center field — full width, fixed height */
+  .center {
+    width: 100%;
+    flex-shrink: 0;
+  }
+
+  .field-header {
+    height: 42px;
+    padding: 0 12px;
+  }
+  .park-name { font-size: 1.05rem; }
+  .legend { gap: 8px; }
+  .leg-item { font-size: .58rem; gap: 4px; }
+
+  .svg-wrap {
+    padding: 8px;
+    height: calc(100vw * 0.96);
+    max-height: 420px;
+  }
+
+  /* Right sidebar → stats below field */
+  .right {
+    border-left: none;
+    border-top: 1px solid var(--bd);
+    padding: 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    overflow: visible;
+  }
+
+  /* Stat boxes side by side in 2-col grid */
+  .stat-box { padding: 9px 11px; }
+  .stat-box-val { font-size: 1.6rem; }
+  .stat-box-lbl { font-size: .5rem; }
+  .stat-box-sub { font-size: .6rem; }
+
+  /* Mini charts span full width */
+  .mini-chart-box { grid-column: 1 / -1; }
+
+  /* HR list gets a max-height in drawer */
+  .hr-scroll { max-height: 240px; }
+
+  /* Tooltip: fixed center on mobile (tap-to-show) */
+  .tip {
+    position: fixed !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%);
+    min-width: 220px;
+    z-index: 300;
+    box-shadow: 0 20px 60px rgba(0,0,0,.9);
+  }
+  .tip-close {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 4px;
+  }
+  .tip-close-btn {
+    background: none; border: none; color: var(--muted2);
+    font-size: .9rem; cursor: pointer; padding: 0 2px;
+    line-height: 1;
+  }
+}
+
+/* Hide mobile elements on desktop */
+.mob-filter-btn { display: none; }
+.drawer-overlay { display: none; }
+.drawer-close { display: none; }
+.tip-close { display: none; }
 </style>
 </head>
 <body>
@@ -353,10 +512,17 @@ select option { background: #131720; }
   <div class="loader-bar"><div class="loader-bar-fill" id="loadBar"></div></div>
 </div>
 
+<!-- Drawer overlay (mobile) -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+
 <!-- Header -->
 <header>
   <div class="logo">Exit Velocity</div>
   <div class="logo-sub">MLB Home Run Spray Chart</div>
+  <button class="mob-filter-btn" id="filterBtn" onclick="toggleDrawer()">
+    <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M1 3h14v1.5L9 10v5l-2-1V10L1 4.5V3z"/></svg>
+    Filters
+  </button>
   <div class="season-tabs">
     <button class="stab active" data-season="2026" onclick="setSeason(2026)">2026</button>
     <button class="stab" data-season="2025" onclick="setSeason(2025)">2025</button>
@@ -368,7 +534,11 @@ select option { background: #131720; }
 <div class="body">
 
   <!-- LEFT -->
-  <div class="left">
+  <div class="left" id="leftDrawer">
+    <div class="drawer-close">
+      <span class="drawer-close-lbl">Filters</span>
+      <button class="drawer-close-btn" onclick="closeDrawer()">✕</button>
+    </div>
     <div class="panel">
       <div class="flabel">Game Type</div>
       <select id="gameTypeSel" onchange="applyFilters()">
@@ -416,7 +586,7 @@ select option { background: #131720; }
     </div>
     <div class="svg-wrap" id="svgWrap">
       <svg id="fieldSvg" viewBox="0 0 500 480"></svg>
-      <div class="tip" id="tip"></div>
+      <div class="tip" id="tip"><div class="tip-close"><button class="tip-close-btn" onclick="document.getElementById('tip').classList.remove('show')">✕</button></div></div>
     </div>
   </div>
 
@@ -1062,35 +1232,46 @@ function drawField() {
 
     // Interactions
     g.addEventListener("mouseenter", ev => {
+      if (isMobile()) return;
       dot.setAttribute("r","7"); dot.setAttribute("opacity","1");
-      tip.innerHTML = `
-        <div class="tip-player">${hr.batterName}</div>
-        <div class="tip-grid">
-          <span class="tip-lbl">Distance</span><span class="tip-val" style="color:${col}">${hr.distance ? hr.distance+" ft" : "—"}</span>
-          <span class="tip-lbl">Exit Velo</span><span class="tip-val" style="color:var(--blue)">${hr.launchSpeed ? hr.launchSpeed+" mph" : "—"}</span>
-          <span class="tip-lbl">Angle</span><span class="tip-val">${hr.launchAngle ? hr.launchAngle+"°" : "—"}</span>
-          <span class="tip-lbl">vs.</span><span class="tip-val" style="font-family:var(--sans);font-size:.7rem">${hr.pitcherName||"—"}</span>
-          <span class="tip-lbl">Stadium</span><span class="tip-val" style="font-family:var(--sans);font-size:.7rem">${hr.venueId ? getStadium(hr.venueId).name : "—"}</span>
-          <span class="tip-lbl">Game</span><span class="tip-val" style="font-family:var(--sans);font-size:.7rem">${hr.gameTypeLabel||"Regular Season"}</span>
-          <span class="tip-lbl">Date</span><span class="tip-val" style="font-family:var(--sans);font-size:.7rem">${hr.date||"—"}</span>
-        </div>`;
-      posTip(ev, wrap, tip); tip.classList.add("show");
+      showTip(hr, col, ev, wrap, tip);
     });
-    g.addEventListener("mousemove", ev => posTip(ev, wrap, tip));
+    g.addEventListener("mousemove", ev => { if (!isMobile()) posTip(ev, wrap, tip); });
     g.addEventListener("mouseleave", () => {
+      if (isMobile()) return;
       dot.setAttribute("r", isActive?"7":"4.5");
       dot.setAttribute("opacity", isActive?"1":opa);
       tip.classList.remove("show");
     });
-    g.addEventListener("click", () => {
+    g.addEventListener("click", (ev) => {
       activeHRIdx = i;
-      // Highlight list item
       document.querySelectorAll(".hr-row").forEach((r,ri) => r.classList.toggle("active", ri===i));
+      if (isMobile()) {
+        ev.stopPropagation();
+        showTip(hr, col, null, wrap, tip);
+      }
       drawField();
     });
 
     svg.appendChild(g);
   });
+}
+
+function showTip(hr, col, ev, wrap, tip) {
+  const closeBtn = `<div class="tip-close"><button class="tip-close-btn" onclick="document.getElementById('tip').classList.remove('show')">✕</button></div>`;
+  tip.innerHTML = closeBtn + `
+    <div class="tip-player">${hr.batterName}</div>
+    <div class="tip-grid">
+      <span class="tip-lbl">Distance</span><span class="tip-val" style="color:${col}">${hr.distance ? hr.distance+" ft" : "—"}</span>
+      <span class="tip-lbl">Exit Velo</span><span class="tip-val" style="color:var(--blue)">${hr.launchSpeed ? hr.launchSpeed+" mph" : "—"}</span>
+      <span class="tip-lbl">Angle</span><span class="tip-val">${hr.launchAngle ? hr.launchAngle+"°" : "—"}</span>
+      <span class="tip-lbl">vs.</span><span class="tip-val" style="font-family:var(--sans);font-size:.7rem">${hr.pitcherName||"—"}</span>
+      <span class="tip-lbl">Stadium</span><span class="tip-val" style="font-family:var(--sans);font-size:.7rem">${hr.venueId ? getStadium(hr.venueId).name : "—"}</span>
+      <span class="tip-lbl">Game</span><span class="tip-val" style="font-family:var(--sans);font-size:.7rem">${hr.gameTypeLabel||"Regular Season"}</span>
+      <span class="tip-lbl">Date</span><span class="tip-val" style="font-family:var(--sans);font-size:.7rem">${hr.date||"—"}</span>
+    </div>`;
+  if (ev) posTip(ev, wrap, tip);
+  tip.classList.add("show");
 }
 
 function posTip(e, wrap, tip) {
@@ -1100,6 +1281,39 @@ function posTip(e, wrap, tip) {
   if (y + 150 > r.height) y -= 130;
   tip.style.left = x+"px"; tip.style.top = y+"px";
 }
+
+// ── Mobile drawer ──
+function isMobile() { return window.innerWidth <= 768; }
+
+function toggleDrawer() {
+  const drawer = document.getElementById('leftDrawer');
+  const overlay = document.getElementById('drawerOverlay');
+  const btn = document.getElementById('filterBtn');
+  const open = drawer.classList.toggle('open');
+  overlay.classList.toggle('show', open);
+  btn.classList.toggle('active', open);
+}
+
+function closeDrawer() {
+  document.getElementById('leftDrawer').classList.remove('open');
+  document.getElementById('drawerOverlay').classList.remove('show');
+  document.getElementById('filterBtn').classList.remove('active');
+}
+
+// Tap outside tooltip to dismiss on mobile
+document.addEventListener('click', (e) => {
+  if (!isMobile()) return;
+  const tip = document.getElementById('tip');
+  if (tip.classList.contains('show') && !tip.contains(e.target)) {
+    tip.classList.remove('show');
+  }
+});
+
+// Close drawer after selecting a filter on mobile
+['gameTypeSel','stadiumSel','playerSel'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('change', () => { if (isMobile()) closeDrawer(); });
+});
 
 // ── Boot ──
 init();
