@@ -635,6 +635,12 @@ select option { background: #131720; }
       </select>
     </div>
     <div class="panel">
+      <div class="flabel">Team</div>
+      <select id="teamSel" onchange="applyFilters()">
+        <option value="all">All Teams</option>
+      </select>
+    </div>
+    <div class="panel">
       <div class="flabel">Stadium</div>
       <select id="stadiumSel" onchange="onStadiumChange()"></select>
     </div>
@@ -754,9 +760,10 @@ const WALL_POLYS = {
 };
 
 // ═══════════════════════════════════════════════════════════
-let DB = {};          // { 2024: {home_runs, stadiums, ...}, 2025: {...} }
+let DB = {};
 let season = 2025;
 let venueId = null;
+let teamFilter = null;
 let filtered = [];
 let activeHRIdx = -1;
 
@@ -866,6 +873,7 @@ function setSeason(s, skipRender) {
       "Updated " + dt.toLocaleDateString("en-US", {month:"short",day:"numeric",year:"numeric"});
   }
   buildStadiumDropdown();
+  buildTeamDropdown();
   if (!skipRender) applyFilters();
 }
 
@@ -903,6 +911,32 @@ function buildStadiumDropdown() {
   onStadiumChange(true);
 }
 
+function buildTeamDropdown() {
+  const hrs = DB[season]?.home_runs || [];
+  // Collect unique batting teams sorted alphabetically
+  const teams = [...new Map(
+    hrs.filter(h => h.battingTeam && h.battingTeamId)
+       .map(h => [h.battingTeamId, h.battingTeam])
+  ).entries()].sort((a,b) => a[1].localeCompare(b[1]));
+
+  const sel = document.getElementById("teamSel");
+  const prev = sel.value;
+  sel.innerHTML = '<option value="all">All Teams</option>';
+  teams.forEach(([id, name]) => {
+    const o = document.createElement("option");
+    o.value = id; o.textContent = name;
+    sel.appendChild(o);
+  });
+  // Restore selection if still valid
+  if (prev !== "all" && [...sel.options].some(o => o.value === prev)) {
+    sel.value = prev;
+    teamFilter = parseInt(prev);
+  } else {
+    teamFilter = null;
+    sel.value = "all";
+  }
+}
+
 function onStadiumChange(skipFilter) {
   const raw = document.getElementById("stadiumSel").value;
   venueId = raw === "all" ? null : parseInt(raw);
@@ -931,9 +965,11 @@ function applyFilters() {
   const hrs = DB[season]?.home_runs || [];
   const player   = document.getElementById("playerSel").value;
   const gameType = document.getElementById("gameTypeSel").value;
+  teamFilter = (() => { const v = document.getElementById("teamSel").value; return v === "all" ? null : parseInt(v); })();
 
   filtered = hrs.filter(h => {
     if (venueId && h.venueId !== venueId) return false;
+    if (teamFilter && h.battingTeamId !== teamFilter) return false;
     if (player !== "all" && h.batterName !== player) return false;
     if (gameType === "playoffs") {
       if (!["F","D","L","W"].includes(h.gameType)) return false;
@@ -955,6 +991,7 @@ function rebuildPlayerDropdown(hrs) {
   const gameType = document.getElementById("gameTypeSel").value;
 
   let pool = venueId ? hrs.filter(h => h.venueId === venueId) : hrs;
+  if (teamFilter) pool = pool.filter(h => h.battingTeamId === teamFilter);
   if (gameType === "playoffs") {
     pool = pool.filter(h => ["F","D","L","W"].includes(h.gameType));
   } else if (gameType !== "all") {
@@ -1437,7 +1474,7 @@ document.addEventListener('click', (e) => {
 });
 
 // Close drawer after selecting a filter on mobile
-['gameTypeSel','stadiumSel','playerSel'].forEach(id => {
+['gameTypeSel','teamSel','stadiumSel','playerSel'].forEach(id => {
   const el = document.getElementById(id);
   if (el) el.addEventListener('change', () => { if (isMobile()) closeDrawer(); });
 });
